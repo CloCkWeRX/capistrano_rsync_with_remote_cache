@@ -115,7 +115,19 @@ module Capistrano
           end
         end
       end
-      
+
+      class RsyncWithRemoteCacheLocalAssets < RsyncWithRemoteCache
+        def deploy!
+          update_local_cache
+          compile_assets
+          update_remote_cache
+          copy_remote_cache
+        end
+
+        def compile_assets
+          `cd #{local_cache_path} && rake assets:precompile RAILS_ENV=#{rails_env}`
+        end
+      end
     end
   end
 end
