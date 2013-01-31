@@ -4,7 +4,7 @@ require 'fileutils'
 module Capistrano
   module Deploy
     module Strategy
-      class RsyncWithRemoteCache < Remote
+      class RsyncWithRemoteCacheLocalAssets < Remote
         
         class InvalidCacheError < Exception; end
 
