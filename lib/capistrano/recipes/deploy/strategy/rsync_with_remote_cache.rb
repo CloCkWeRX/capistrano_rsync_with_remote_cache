@@ -32,7 +32,7 @@ module Capistrano
         end
 
         def compile_assets
-          `cd #{local_cache_path} && rake assets:precompile RAILS_ENV=#{rails_env}`
+          run("cd #{local_cache_path} && /usr/bin/env rake assets:precompile RAILS_ENV=#{rails_env}")
         end
         
         def update_local_cache
