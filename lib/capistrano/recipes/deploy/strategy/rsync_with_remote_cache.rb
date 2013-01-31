@@ -25,8 +25,14 @@ module Capistrano
 
         def deploy!
           update_local_cache
+          # TODO Inject a default attribute to disable this, retain BC?
+          compile_assets
           update_remote_cache
           copy_remote_cache
+        end
+
+        def compile_assets
+          `cd #{local_cache_path} && rake assets:precompile RAILS_ENV=#{rails_env}`
         end
         
         def update_local_cache
@@ -127,19 +133,6 @@ module Capistrano
           else
             raise InvalidCacheError, "The local cache exists but is not valid (#{local_cache_path})"
           end
-        end
-      end
-
-      class RsyncWithRemoteCacheLocalAssets < RsyncWithRemoteCache
-        def deploy!
-          update_local_cache
-          compile_assets
-          update_remote_cache
-          copy_remote_cache
-        end
-
-        def compile_assets
-          `cd #{local_cache_path} && rake assets:precompile RAILS_ENV=#{rails_env}`
         end
       end
     end
