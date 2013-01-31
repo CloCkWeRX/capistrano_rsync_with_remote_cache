@@ -19,7 +19,7 @@ module Capistrano
           :bzr        => "bzr info | grep parent | sed \'s/^.*parent branch: //\'"
         }
         
-        default_attribute :rsync_options, '-az --delete'
+        default_attribute :rsync_options, "-az --delete --exclude '.git/'"
         default_attribute :local_cache, '.rsync_cache'
         default_attribute :repository_cache, 'cached-copy'
 
@@ -30,13 +30,19 @@ module Capistrano
         end
         
         def update_local_cache
-          system(command)
+          unless system(command)
+            raise "Unable to update local cache"
+          end
           mark_local_cache
         end
         
         def update_remote_cache
           finder_options = {:except => { :no_release => true }}
-          find_servers(finder_options).each {|s| system(rsync_command_for(s)) }
+          find_servers(finder_options).each do |server|
+            unless system(rsync_command_for(server))
+              raise "Unable to update remote cache"
+            end
+          end
         end
         
         def copy_remote_cache
@@ -44,11 +50,19 @@ module Capistrano
         end
         
         def rsync_command_for(server)
-          "rsync #{rsync_options} --rsh='ssh -p #{ssh_port(server)}' #{local_cache_path}/ #{rsync_host(server)}:#{repository_cache_path}/"
+          "rsync #{rsync_options} --rsh='#{remote_shell_command(server)}' #{local_cache_path}/ #{rsync_host(server)}:#{repository_cache_path}/"
         end
         
         def mark_local_cache
           File.open(File.join(local_cache_path, 'REVISION'), 'w') {|f| f << revision }
+        end
+        
+        def remote_shell_command(server)
+          cmd = "ssh -p #{ssh_port(server)}"
+          if ssh_options.has_key?(:config)
+            cmd << %Q{ -F "#{ssh_options[:config]}"}
+          end
+          cmd
         end
         
         def ssh_port(server)

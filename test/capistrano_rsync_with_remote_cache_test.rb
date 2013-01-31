@@ -1,4 +1,4 @@
-require 'rubygems'
+require 'bundler'
 require 'test/unit'
 require 'mocha'
 require 'shoulda'
@@ -13,7 +13,7 @@ class CapistranoRsyncWithRemoteCacheTest < Test::Unit::TestCase
     setup { @strategy = Capistrano::Deploy::Strategy::RsyncWithRemoteCache.new }
 
     should "know the default rsync options" do
-      @strategy.rsync_options.should == '-az --delete'
+      @strategy.rsync_options.should == "-az --delete --exclude '.git/'"
     end
     
     should "allow overriding of the rsync options" do
@@ -227,12 +227,21 @@ class CapistranoRsyncWithRemoteCacheTest < Test::Unit::TestCase
     
     should "be able to update the local cache" do
       @strategy.stubs(:command).with().returns('scm_command')
-      @strategy.expects(:system).with('scm_command')
+      @strategy.expects(:system).with('scm_command').returns(true)
       @strategy.expects(:mark_local_cache).with()
       
       @strategy.update_local_cache
     end
     
+    should "raise exception if unable to update the local cache" do
+      @strategy.stubs(:command)
+      @strategy.stubs(:system).returns(false)
+      @strategy.expects(:mark_local_cache).never
+
+      e = assert_raises(RuntimeError) { @strategy.update_local_cache }
+      assert_equal "Unable to update local cache", e.message
+    end
+
     should "be able to run the rsync command on a server" do
       server = stub()
       
@@ -240,7 +249,7 @@ class CapistranoRsyncWithRemoteCacheTest < Test::Unit::TestCase
       
       @strategy.stubs(
         :rsync_options         => 'rsync_options', 
-        :ssh_port              => 'ssh_port',
+        :remote_shell_command  => 'ssh -p ssh_port',
         :local_cache_path      => 'local_cache_path',
         :repository_cache_path => 'repository_cache_path'
       )
@@ -257,10 +266,26 @@ class CapistranoRsyncWithRemoteCacheTest < Test::Unit::TestCase
       @strategy.stubs(:rsync_command_for).with(server_1).returns('server_1_rsync_command')
       @strategy.stubs(:rsync_command_for).with(server_2).returns('server_2_rsync_command')
       
-      @strategy.expects(:system).with('server_1_rsync_command')
-      @strategy.expects(:system).with('server_2_rsync_command')
+      @strategy.expects(:system).with('server_1_rsync_command').returns(true)
+      @strategy.expects(:system).with('server_2_rsync_command').returns(true)
       
       @strategy.update_remote_cache
+    end
+    
+    should "raise exception as soon as any rsync command fails" do
+      server_1, server_2, server_3 = [stub(), stub(), stub()]
+      @strategy.stubs(:find_servers).returns([server_1, server_2, server_3])
+      
+      @strategy.stubs(:rsync_command_for).with(server_1).returns('server_1_rsync_command')
+      @strategy.stubs(:rsync_command_for).with(server_2).returns('server_2_rsync_command')
+      @strategy.stubs(:rsync_command_for).with(server_3).returns('server_3_rsync_command')
+      
+      @strategy.stubs(:system).with('server_1_rsync_command').returns(true)
+      @strategy.stubs(:system).with('server_2_rsync_command').returns(false)
+      @strategy.expects(:system).with('server_3_rsync_command').never
+      
+      e = assert_raises(RuntimeError) { @strategy.update_remote_cache }
+      assert_equal "Unable to update remote cache", e.message
     end
     
     should "be able copy the remote cache into place" do
