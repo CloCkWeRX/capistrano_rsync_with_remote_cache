@@ -24,11 +24,11 @@ module Capistrano
         default_attribute :repository_cache, 'cached-copy'
 
         def deploy!
-          update_local_cache
+          #update_local_cache
           # TODO Inject a default attribute to disable this, retain BC?
           compile_assets
-          update_remote_cache
-          copy_remote_cache
+          #update_remote_cache
+          #copy_remote_cache
         end
 
         def compile_assets
